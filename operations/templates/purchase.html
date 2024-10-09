@@ -102,17 +102,18 @@
             fetchSupplierDetails(selectedSupplierId);
         }
 
+        // Check if an item is already selected and load its price and total
+        const selectedItemId = $('#id_item_id').val();
+        const initialQuantity = $('#id_quantity').val();
+        if (selectedItemId) {
+            fetchItemPriceAndTotal(selectedItemId, initialQuantity);
+        }
+
         // Update item price when an item is selected
         $('#id_item_id').change(function() {
             let itemId = $(this).val();
             if (itemId) {
-                $.ajax({
-                    url: '/get-item-price/' + itemId + '/',
-                    success: function(data) {
-                        $('#item-price').text('Price: ' + data.price);
-                        updateItemTotal();
-                    }
-                });
+                fetchItemPriceAndTotal(itemId, $('#id_quantity').val());
             } else {
                 $('#item-price').text('');
                 $('#item-total').text('');
@@ -159,6 +160,23 @@
                 error: function() {
                     // Handle errors if AJAX request fails
                     $('#supplier-details').html('<strong>Error fetching supplier details</strong>');
+                }
+            });
+        }
+
+        function fetchItemPriceAndTotal(itemId, quantity) {
+            $.ajax({
+                url: '/get-item-price/' + itemId + '/',
+                success: function(data) {
+                    $('#item-price').text('Price: ' + data.price);
+                    if (quantity) {
+                        let total = data.price * quantity;
+                        $('#item-total').text('Total: ' + total.toFixed(2));
+                    }
+                },
+                error: function() {
+                    // Handle errors if AJAX request fails
+                    $('#item-price').text('<strong>Error fetching item price</strong>');
                 }
             });
         }
