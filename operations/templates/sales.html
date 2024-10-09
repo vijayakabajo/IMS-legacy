@@ -1,0 +1,233 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<h1 class='text-3xl mb-4'>Sale Items</h1>
+<div class='container'>
+
+    <form id="sales-form" method="post">
+        {% csrf_token %}
+        
+        <!-- Bill No -->
+        <strong>Bill No:</strong>
+        <label>{{ bill_number }}</label>
+
+        <strong><label class='mt-2 ml-4'>Date:</label></strong>
+        {{ sales_form.bill_date }}
+        <br>
+        
+        <!-- Seller (Supplier) form fields -->
+        <strong><label class='mt-2'>Customer:</label></strong>
+        {{ sales_form.seller }}
+        {{ sales_form.seller.errors }}
+   
+        <!-- Seller details will be displayed here -->
+        <div id="seller-details" class="mt-2">
+            {% if seller_name and seller_contact %}
+                <strong>Customer Name:</strong> {{ seller_name }}<br>
+                <strong>Contact Number:</strong> {{ seller_contact }}
+            {% endif %}
+        </div>
+
+        <div class='sm:space-x-8 mt-8'>
+            <!-- Item form fields -->
+            <strong><label>Item:</label></strong>
+            {{ temp_form.item }}
+            <strong><span id="item-price"></span></strong>  <!-- Display item price -->
+
+            
+            <strong><label>Quantity:</label></strong>
+            {{ temp_form.quantity }}
+            <strong><span id="available-stock"></span></strong>
+
+            
+            <strong><span id="item-total"></span></strong>  <!-- Display item total -->
+
+
+            
+            <!-- Button to add item -->
+            <button class="btn btn-primary py-1" type="submit" name="add_item">Add Item</button>
+        </div>
+        
+        {{ temp_form.item.errors }}
+        {{ temp_form.quantity.errors }}
+
+        {% if messages %}
+        <div class="alert alert-danger mt-2">
+            <ul>
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Table to show added items -->
+        <table class="table mt-3">
+            <thead>
+                <tr>
+                    <th scope="col">Sl. No.</th>
+                    <th scope="col">Item</th>
+                    <th scope="col">Quantity</th>
+                    <th scope="col">Total</th>
+                    <th scope="col">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in temp_items %}
+                <tr id="item-row-{{ item.id }}">
+                    <td scope="row">{{ forloop.counter }}</td>
+                    <td>{{ item.item.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.items_total }}</td>
+                    <td>
+                        <button class="btn btn-danger remove-item-btn" data-item-id="{{ item.id }}">Remove</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class='flex justify-end mr-2'>
+            <strong>Subtotal:</strong><span id='subtotal' class='ml-1'>{{ sub_total }}</span>
+        </div>
+
+        <!-- Finalize Sale Button at the Bottom -->
+        <div class='flex justify-end mt-4 mx-2'>
+            <button class="btn btn-primary" type="submit" name="finalize_sales" id="finalizeSaleBtn">Finalize Sale</button>
+            {% comment %} <a href="{% url 'sales_master_list' %}" class='btn btn-info'><< Sales List</a> {% endcomment %}
+        </div>
+
+    </form>
+</div>
+
+
+
+{% comment %} ------------------------------------------scripts------------------------------------------------- {% endcomment %}
+
+
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Update item price and available stock when an item is selected
+        $('#id_item').change(function() {
+            let itemId = $(this).val();
+            if (itemId) {
+                // Fetch item price
+                $.ajax({
+                    url: '/get-item-price/' + itemId + '/',
+                    success: function(data) {
+                        $('#item-price').text('Price: ' + data.price);
+                        updateItemTotal();
+                    }
+                });
+
+                // Fetch available stock
+                $.ajax({
+                    url: '/available-stock/' + itemId + '/',
+                    success: function(data) {
+                        $('#available-stock').text('Available Stock: ' + data.available_stock);
+                    },
+                    error: function() {
+                        $('#available-stock').text('Available Stock: N/A');
+                    }
+                });
+            } else {
+                $('#item-price').text('');
+                $('#item-total').text('');
+                $('#available-stock').text('');
+            }
+        });
+
+        // Update item total when quantity changes
+        $('#id_quantity').on('input', function() {
+            updateItemTotal();
+        });
+
+        function updateItemTotal() {
+            let quantity = $('#id_quantity').val();
+            let priceText = $('#item-price').text();
+            let price = parseFloat(priceText.replace('Price: ', ''));
+            if (quantity && price) {
+                let total = price * quantity;
+                $('#item-total').text('Total: ' + total.toFixed(2));
+            } else {
+                $('#item-total').text('');
+            }
+        }
+
+
+
+
+        $('#id_seller').change(function() {
+            let sellerId = $(this).val();  // Get the selected seller ID
+            if (sellerId) {
+                $.ajax({
+                    url: '/get-supplier-details/' + sellerId + '/',  // URL to get seller details
+                    success: function(data) {
+                        // Display seller details in the #seller-details div
+                        $('#seller-details').html(
+                            '<strong>Seller Name:</strong> ' + data.supplier_name + '<br>' +
+                            '<strong>Contact Number:</strong> ' + data.supplier_contact
+                        );
+                    },
+                    error: function() {
+                        // Handle errors if AJAX request fails
+                        $('#seller-details').html('<strong>Error fetching seller details</strong>');
+                    }
+                });
+            } else {
+                // Clear seller details if no seller is selected
+                $('#seller-details').html('');
+            }
+        });
+    });
+</script>
+
+<script>
+    $(document).ready(function() {
+        $('#finalizeSaleBtn').click(function() {
+            $('#id_item').prop('disabled', true);
+            $('#id_quantity').prop('disabled', true);
+        });
+    });
+</script>
+
+<script>
+    $(document).ready(function() {
+        $('.remove-item-btn').click(function(e) {
+            e.preventDefault();
+            const itemId = $(this).data('item-id');
+            const url = '/remove-item-sales/' + itemId + '/';
+    
+            $.ajax({
+                url: url,
+                method: 'POST',
+                data: {
+                    'csrfmiddlewaretoken': '{{ csrf_token }}',  // CSRF token for security
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Remove the table row
+                        $('#item-row-' + itemId).remove();
+    
+                        // Update the subtotal
+                        $('#subtotal').text(response.sub_total.toFixed(2));
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('Error removing item.');
+                }
+            });
+        });
+    });
+    
+
+
+ 
+</script>
+
+{% endblock %}

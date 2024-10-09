@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1 class='text-3xl'>Add Supplier</h1>
+    
+    <form method="POST" class='space-y-4'>
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn btn-primary" type="submit">Add Supplier</button>
+    </form>
+    {% endblock %}
+
